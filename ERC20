@@ -4,105 +4,58 @@ pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "hardhat/console.sol";
 
-contract DegenGamingToken {
-    string public constant name = "Degen Gaming Token";
-    string public constant symbol = "DGT";
-    uint8 public constant decimals = 18;
-    
-    uint256 private _totalSupply;
-    mapping(address => uint256) private _balances;
-    mapping(address => mapping(address => uint256)) private _allowances;
-    
-    address private _owner;
-    
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-    
-    modifier onlyOwner() {
-        require(msg.sender == _owner, "Only the contract owner can call this function");
-        _;
+contract DegenGamingToken is ERC20, Ownable, ERC20Burnable {
+
+    struct GameItem {
+        string name;
+        uint256 price;
     }
-    
-    constructor() {
-        _owner = msg.sender;
+
+    GameItem[] public gameItems;
+
+    constructor() ERC20("Degen Gaming Token", "DGT") {
+        gameItems.push(GameItem("Power Sword", 200));
+        gameItems.push(GameItem("Magic Wand", 100));
+        gameItems.push(GameItem("Health Potion", 75));
     }
-    
-    function totalSupply() public view returns (uint256) {
-        return _totalSupply;
+
+    function mintTokens(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
     }
-    
-    function balanceOf(address account) public view returns (uint256) {
-        return _balances[account];
-    }
-    
-    function transfer(address recipient, uint256 amount) public returns (bool) {
+
+    function transferTokens(address recipient, uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
         _transfer(msg.sender, recipient, amount);
-        return true;
     }
-    
-    function approve(address spender, uint256 amount) public returns (bool) {
-        _approve(msg.sender, spender, amount);
-        return true;
+
+    function checkBalance() external view returns (uint256) {
+        return balanceOf(msg.sender);
     }
-    
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
-        require(amount <= _allowances[sender][msg.sender], "Transfer amount exceeds allowance");
-        _transfer(sender, recipient, amount);
-        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount);
-        return true;
+
+    function burnTokens(uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
+        _burn(msg.sender, amount);
     }
-    
-    function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
-        _approve(msg.sender, spender, _allowances[msg.sender][spender] + addedValue);
-        return true;
+
+    function redeemGameItem(uint256 choice) external {
+        require(choice < gameItems.length, "Invalid selection");
+
+        GameItem storage item = gameItems[choice];
+        require(balanceOf(msg.sender) >= item.price, "Insufficient balance");
+
+        _transfer(msg.sender, owner(), item.price);
     }
-    
-    function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
-        require(subtractedValue <= _allowances[msg.sender][spender], "Decreased allowance below zero");
-        _approve(msg.sender, spender, _allowances[msg.sender][spender] - subtractedValue);
-        return true;
+
+    function getGameItemCount() external view returns (uint256) {
+        return gameItems.length;
     }
-    
-    function mint(address account, uint256 amount) public onlyOwner {
-        require(account != address(0), "Mint to the zero address");
-        _totalSupply += amount;
-        _balances[account] += amount;
-        emit Transfer(address(0), account, amount);
-    }
-    
-    function burn(uint256 amount) public {
-        require(amount <= _balances[msg.sender], "Burn amount exceeds balance");
-        _totalSupply -= amount;
-        _balances[msg.sender] -= amount;
-        emit Transfer(msg.sender, address(0), amount);
-    }
-    
-    function redeem(uint256 amount) public {
-        require(amount <= _balances[msg.sender], "Redeem amount exceeds balance");
-        _totalSupply -= amount;
-        _balances[msg.sender] -= amount;
-        // Add logic here for redeeming tokens for in-game items
-        emit Transfer(msg.sender, address(0), amount);
-    }
-    
-    function _transfer(address sender, address recipient, uint256 amount) internal {
-        require(sender != address(0), "Transfer from the zero address");
-        require(recipient != address(0), "Transfer to the zero address");
-        require(amount <= _balances[sender], "Transfer amount exceeds balance");
-        
-        _balances[sender] -= amount;
-        _balances[recipient] += amount;
-        
-        emit Transfer(sender, recipient, amount);
-    }
-    
-    function _approve(address owner, address spender, uint256 amount) internal {
-        require(owner != address(0), "Approve from the zero address");
-        require(spender != address(0), "Approve to the zero address");
-        
-        _allowances[owner][spender] = amount;
-        
-        emit Approval(owner, spender, amount);
+
+    function getGameItem(uint256 index) external view returns (string memory, uint256) {
+        require(index < gameItems.length, "Invalid index");
+
+        GameItem storage item = gameItems[index];
+        return (item.name, item.price);
     }
 }
